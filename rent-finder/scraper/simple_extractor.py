@@ -4,146 +4,149 @@ import re
 
 
 class SimpleDataExtractor:
-    """Version simplifiée de l'extracteur de données pour éviter les problèmes de typage"""
+    """Extracteur de données"""
 
     def __init__(self, html_content: str):
         self.soup = BeautifulSoup(html_content, "html.parser")
         self.text = html_content
 
-    def extract_all_data(self) -> Dict[str, Any]:
+    def extract_all_data(self, type: str) -> Dict[str, Any]:
         """Extrait toutes les données de la page en utilisant des regex et sélecteurs simples"""
-        data = {
-            "prix_global": self._extract_price_data(),
-            "prix_par_pieces": self._extract_price_by_rooms(),
-            "loyers": self._extract_rent_data(),
-            "delais_vente": self._extract_sale_delays(),
-            "ville": self._extract_city_info(),
-        }
-
+        if type == "appartment":
+            data = {"Appartement": self._extract_appartment_data()}
+        else:
+            data = {"Maison": self._extract_house_data()}
         return data
 
-    def _extract_price_data(self) -> Dict[str, Any]:
-        """Extrait les données de prix principal"""
+    def _extract_appartment_data(self):
+        data = {
+            "prix_m2_median": self._extract_m2_sell_data("prix-m2-appartement"),
+            "loyers_m2_median": self._extract_m2_rent_data("loyer-appartement"),
+            "price_by_rooms": self._extract_sell_price_by_rooms(
+                "Prix d'un appartement par nombre de pièces"
+            ),
+            "loyers_m2_by_rooms": self._extract_rent_price_by_rooms(
+                "Loyer d'un appartement par nombre de pièces"
+            ),
+        }
+        print(data)
+        return data
+
+    def _extract_house_data(self):
+        data = {
+            "prix_m2_median": self._extract_m2_sell_data("prix-m2-maison"),
+            "price_m2_by_rooms": self._extract_m2_rent_data("loyer-maison"),
+            "loyers_m2_median": self._extract_sell_price_by_rooms(
+                "Prix d'une maison par nombre de pièces"
+            ),
+            "loyers_m2_by_rooms": self._extract_rent_price_by_rooms(
+                "Loyer d'une maison par nombre de pièces"
+            ),
+        }
+        print(data)
+        return data
+
+    def _extract_m2_sell_data(self, tag: str):
         price_data = {}
-
-        # Prix médian - chercher dans le texte
-        price_patterns = [
-            r"(\d[\d\s]*)\s*€/m2.*prix\s*médian",
-            r"prix\s*médian.*?(\d[\d\s]*)\s*€/m2",
-            r"<strong[^>]*>(\d[\d\s]*)\s*€/m2</strong>.*médian",
-            r"médian.*?<strong[^>]*>(\d[\d\s]*)\s*€/m2</strong>",
-        ]
-
-        for pattern in price_patterns:
-            matches = re.findall(pattern, self.text, re.IGNORECASE | re.DOTALL)
-            if matches:
-                try:
-                    price_data["prix_median_m2"] = int(matches[0].replace(" ", ""))
-                    break
-                except ValueError:
-                    continue
-
-        # Évolutions
-        evolution_patterns = [
-            (r"([+-]?\d+)\s*%.*sur\s*1\s*an", "evolution_1_an"),
-            (r"([+-]?\d+)\s*%.*sur\s*5\s*ans", "evolution_5_ans"),
-        ]
-
-        for pattern, key in evolution_patterns:
-            matches = re.findall(pattern, self.text, re.IGNORECASE)
-            if matches:
-                price_data[key] = f"{matches[0]}%"
-
+        sell_price = self.soup.find("h2", id=tag)
+        if sell_price:
+            strongs = sell_price.find_all_next("strong", limit=3)
+            if len(strongs) == 3:
+                price_data["prix_median_m2"] = self._convert_m2(
+                    strongs[0].get_text(strip=True)
+                )
+                price_data["evolution_one_year"] = self._convert_evolution(
+                    strongs[1].get_text(strip=True)
+                )
+                price_data["evolution_five_years"] = self._convert_evolution(
+                    strongs[2].get_text(strip=True)
+                )
         return price_data
 
-    def _extract_price_by_rooms(self) -> Dict[str, int]:
-        """Extrait les prix par nombre de pièces"""
+    def _extract_m2_rent_data(self, tag: str):
+        price_data = {}
+        rent_price = self.soup.find("h2", id=tag)
+        if rent_price:
+            strongs = rent_price.find_all_next("strong", limit=3)
+            if len(strongs) == 3:
+                price_data["prix_rent_m2"] = self._convert_m2(
+                    strongs[0].get_text(strip=True)
+                )
+                price_data["rent_evolution_one_year"] = self._convert_evolution(
+                    strongs[1].get_text(strip=True)
+                )
+                price_data["rent_evolution_five_years"] = self._convert_evolution(
+                    strongs[2].get_text(strip=True)
+                )
+        return price_data
+
+    def _extract_sell_price_by_rooms(self, tag: str) -> Dict[str, int]:
         rooms_data = {}
 
-        # Patterns pour les différents types de pièces
-        room_patterns = [
-            (r"Studios?\s*/\s*1\s*pièce.*?(\d[\d\s]*)\s*€/m2", "Studios / 1 pièce"),
-            (r"2\s*pièces?.*?(\d[\d\s]*)\s*€/m2", "2 pièces"),
-            (r"3\s*pièces?.*?(\d[\d\s]*)\s*€/m2", "3 pièces"),
-            (r"4\s*pièces?.*?(\d[\d\s]*)\s*€/m2", "4 pièces"),
-            (r"5\s*pièces?.*?(\d[\d\s]*)\s*€/m2", "5 pièces"),
-            (r"6\s*pièces?.*?(\d[\d\s]*)\s*€/m2", "6 pièces"),
-            (r"7\s*pièces?.*?(\d[\d\s]*)\s*€/m2", "7 pièces et plus"),
-        ]
+        h3 = self.soup.find(
+            "h3",
+            string=lambda t: t and tag in t,
+        )
+        if not h3:
+            return rooms_data
 
-        for pattern, room_type in room_patterns:
-            matches = re.findall(pattern, self.text, re.IGNORECASE | re.DOTALL)
-            for match in matches:
-                try:
-                    price = int(match.replace(" ", ""))
-                    rooms_data[room_type] = price
-                    break  # Premier match trouvé
-                except ValueError:
+        table = h3.find_next("table")
+        if not table:
+            return rooms_data
+
+        for row in table.select("tbody tr"):
+            cols = row.find_all("td")
+            if len(cols) >= 2:
+                room_label = cols[0].get_text(strip=True)
+                price_text = cols[1].get_text(strip=True)
+
+                if "-" in price_text:
                     continue
+
+                price_clean = price_text.split("€/m2")[0]
+                price_num = int(re.sub(r"[^\d]", "", price_clean))
+                rooms_data[room_label] = price_num
+        return rooms_data
+
+    def _extract_rent_price_by_rooms(self, tag: str) -> Dict[str, int]:
+        rooms_data = {}
+
+        h3 = self.soup.find(
+            "h3",
+            string=lambda t: t and tag in t,
+        )
+        if not h3:
+            return rooms_data
+
+        table = h3.find_next("table")
+        if not table:
+            return rooms_data
+
+        for row in table.select("tbody tr"):
+            cols = row.find_all("td")
+            if len(cols) >= 2:
+                room_label = cols[0].get_text(strip=True)
+                price_text = cols[1].get_text(strip=True)
+
+                if "-" in price_text:
+                    continue
+
+                price_clean = price_text.split("€/m2")[0]
+                price_num = int(re.sub(r"[^\d]", "", price_clean))
+                rooms_data[room_label] = price_num
 
         return rooms_data
 
-    def _extract_rent_data(self) -> Dict[str, Any]:
-        """Extrait les données de loyer"""
-        rent_data = {}
+    def _convert_evolution(self, evolution: str) -> int | None:
+        """Convert string evolution in int evolution"""
+        match = re.search(r"(-?\d+)\s*%", evolution)
+        if match:
+            return int(match.group(1))
+        return None
 
-        # Chercher les sections loyer
-        loyer_patterns = [
-            r"Loyer.*?(\d[\d\s]*)\s*€/m2.*médian",
-            r"loyer\s*médian.*?(\d[\d\s]*)\s*€/m2",
-            r"<strong[^>]*>(\d[\d\s]*)\s*€/m2</strong>.*loyer",
-        ]
-
-        for pattern in loyer_patterns:
-            matches = re.findall(pattern, self.text, re.IGNORECASE | re.DOTALL)
-            if matches:
-                try:
-                    rent_data["loyer_median_m2"] = int(matches[0].replace(" ", ""))
-                    break
-                except ValueError:
-                    continue
-
-        return rent_data
-
-    def _extract_sale_delays(self) -> Dict[str, int]:
-        """Extrait les délais de vente"""
-        delays_data = {}
-
-        # Patterns pour les délais de vente
-        delay_patterns = [
-            (r"Studios?\s*/\s*1\s*pièce.*?(\d+)\s*j", "Studios / 1 pièce"),
-            (r"2\s*pièces?.*?(\d+)\s*j", "2 pièces"),
-            (r"3\s*pièces?.*?(\d+)\s*j", "3 pièces"),
-            (r"4\s*pièces?.*?(\d+)\s*j", "4 pièces"),
-            (r"5\s*pièces?.*?(\d+)\s*j", "5 pièces"),
-        ]
-
-        for pattern, room_type in delay_patterns:
-            matches = re.findall(pattern, self.text, re.IGNORECASE | re.DOTALL)
-            for match in matches:
-                try:
-                    delays_data[room_type] = int(match)
-                    break
-                except ValueError:
-                    continue
-
-        return delays_data
-
-    def _extract_city_info(self) -> Dict[str, str]:
-        """Extrait les informations de la ville"""
-        city_info = {}
-
-        # Chercher dans le titre de la page
-        title_patterns = [
-            r"Prix\s+m2\s+immobilier\s+à\s+([^(]+)\s*\((\d+)\)",
-            r"à\s+([^(]+)\s*\((\d+)\)",
-        ]
-
-        for pattern in title_patterns:
-            matches = re.findall(pattern, self.text, re.IGNORECASE)
-            if matches:
-                city_info["nom"] = matches[0][0].strip()
-                city_info["code_postal"] = matches[0][1]
-                break
-
-        return city_info
+    def _convert_m2(self, price_by_m2: str) -> int | None:
+        """Convert string m2 price in int price"""
+        match = re.search(r"([\d\s]+)\s*€/m2", price_by_m2)
+        if match:
+            return int(match.group(1).replace(" ", "").replace("\xa0", ""))
+        return None

@@ -2,47 +2,6 @@ from models import Search, Location, ScrapingParameters
 from typing import Dict, Any
 
 
-def handle_data(data: Dict[str, Any], search_name: str) -> None:
-    """Handler pour traiter les données récupérées"""
-    print(f"\n=== Nouvelles données pour {search_name} ===")
-
-    # Afficher les informations de la ville
-    if "ville" in data and data["ville"]:
-        ville = data["ville"]
-        print(f"Ville: {ville.get('nom', 'N/A')} ({ville.get('code_postal', 'N/A')})")
-
-    # Afficher les prix globaux
-    if "prix_global" in data and data["prix_global"]:
-        prix = data["prix_global"]
-        print(f"\nPrix médian au m²: {prix.get('prix_median_m2', 'N/A')} €/m²")
-        print(f"Évolution 1 an: {prix.get('evolution_1_an', 'N/A')}")
-        print(f"Évolution 5 ans: {prix.get('evolution_5_ans', 'N/A')}")
-        if "prix_bas_m2" in prix:
-            print(f"Prix bas: {prix['prix_bas_m2']} €/m²")
-        if "prix_haut_m2" in prix:
-            print(f"Prix haut: {prix['prix_haut_m2']} €/m²")
-
-    # Afficher les prix par pièces
-    if "prix_par_pieces" in data and data["prix_par_pieces"]:
-        print(f"\nPrix par nombre de pièces:")
-        for pieces, prix in data["prix_par_pieces"].items():
-            print(f"  {pieces}: {prix} €/m²")
-
-    # Afficher les loyers
-    if "loyers" in data and data["loyers"]:
-        loyers = data["loyers"]
-        if "loyer_median_m2" in loyers:
-            print(f"\nLoyer médian: {loyers['loyer_median_m2']} €/m²")
-
-    # Afficher les délais de vente
-    if "delais_vente" in data and data["delais_vente"]:
-        print(f"\nDélais de vente:")
-        for pieces, delai in data["delais_vente"].items():
-            print(f"  {pieces}: {delai} jours")
-
-    print("=" * 50)
-
-
 # Exemple de configuration avec Saint-Hilaire-du-Harcouët
 saint_hilaire_location = Location(
     country_id="FR",
@@ -77,7 +36,7 @@ CONFIG = [
         ville_id="50484",  # ID spécifique pour Saint-Hilaire-du-Harcouët
         parameters=custom_parameters,
         delay=600,  # 10 minutes entre chaque scraping
-        handler=handle_data,
+        type="appartment",
     ),
 ]
 

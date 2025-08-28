@@ -15,17 +15,10 @@ def main() -> None:
     global manager
     signal.signal(signal.SIGINT, signal_handler)
 
-    print("=== Rent Finder - Scraper Figaro Immobilier ===")
-    print(f"Nombre de recherches configurées: {len(CONFIG)}")
-
     manager = RentManager(searches=CONFIG)
 
     if manager.start():
-        print("Gestionnaire démarré avec succès!")
-        print("Appuyez sur Ctrl+C pour arrêter le programme")
-
         try:
-            # Maintenir le programme en vie
             while manager.is_running():
                 import time
 

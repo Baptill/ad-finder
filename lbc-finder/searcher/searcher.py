@@ -8,7 +8,7 @@ import threading
 from typing import List, Union
 
 class Searcher:
-    def __init__(self, searches: Union[List[Search], Search], request_verify: bool = True):
+    def __init__(self, searches: List[Search] | Search, request_verify: bool = True):
         self._searches: List[Search] = searches if isinstance(searches, list) else [searches]
         self._request_verify = request_verify
         self._id = ID()

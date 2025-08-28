@@ -6,17 +6,17 @@ from scraper import FigaroScraper
 
 
 class RentManager:
-    """Gestionnaire principal pour le scraping des données immobilières"""
+    """Controller principal des Scraping de données"""
 
-    def __init__(self, searches: Union[List[Search], Search]):
+    def __init__(self, searches: List[Search] | Search):
         self._searches: List[Search] = (
             searches if isinstance(searches, list) else [searches]
         )
         self._running = False
 
     def _scrape_search(self, search: Search) -> None:
+        """Scrapper du site Figaro Immobilier"""
         scraper = FigaroScraper(search.parameters or ScrapingParameters())
-
         try:
             while self._running:
                 start_time = time.time()
@@ -24,30 +24,16 @@ class RentManager:
                 try:
                     print(f"Début du scraping pour '{search.name}'")
                     url = search.get_url()
-                    data = scraper.scrape_url(url)
+                    data = scraper.scrape_url(url, search.type)
 
                     if data:
-                        # Appeler le handler si défini
                         if search.handler:
                             search.handler(data, search.name)
-
-                        print(f"Scraping réussi pour '{search.name}'")
                     else:
                         print(f"Aucune donnée récupérée pour '{search.name}'")
 
                 except Exception as e:
                     print(f"Erreur lors du scraping de '{search.name}': {e}")
-
-                # Calculer le temps d'attente
-                elapsed = time.time() - start_time
-                sleep_time = max(0, search.delay - elapsed)
-
-                if sleep_time > 0 and self._running:
-                    print(
-                        f"Attente de {sleep_time:.1f}s avant le prochain scraping de '{search.name}'"
-                    )
-                    time.sleep(sleep_time)
-
         finally:
             scraper.close()
 
@@ -63,7 +49,6 @@ class RentManager:
             return False
 
         self._running = True
-        print(f"Démarrage du gestionnaire avec {len(self._searches)} recherche(s)")
 
         for search in self._searches:
             thread = threading.Thread(
@@ -103,7 +88,7 @@ class RentManager:
 
         try:
             url = search.get_url()
-            data = scraper.scrape_url(url)
+            data = scraper.scrape_url(url, search.type)
 
             if data:
                 if search.handler:

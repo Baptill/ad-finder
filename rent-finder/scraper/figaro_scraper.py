@@ -13,33 +13,22 @@ class FigaroScraper:
         self.session = requests.Session()
         self.session.headers.update(parameters.get_headers())
 
-    def scrape_url(self, url: str) -> Optional[Dict[str, Any]]:
-        """Scrape une URL et retourne les données extraites"""
-        print(f"Début du scraping de: {url}")
-
+    def scrape_url(self, url: str, type: str) -> Optional[Dict[str, Any]]:
         for attempt in range(self.parameters.max_retries):
             try:
-                # Délai entre les requêtes
                 if attempt > 0:
                     time.sleep(self.parameters.delay_between_requests * (attempt + 1))
 
                 response = self.session.get(url, timeout=self.parameters.timeout)
                 response.raise_for_status()
-
-                print(f"Réponse reçue avec le code: {response.status_code}")
-
-                # Extraire les données
                 extractor = SimpleDataExtractor(response.text)
-                data = extractor.extract_all_data()
+                data = extractor.extract_all_data(type=type)
 
-                # Ajouter des métadonnées
                 data["metadata"] = {
                     "url": url,
                     "timestamp": time.time(),
                     "status_code": response.status_code,
                 }
-
-                print(f"Scraping réussi pour: {url}")
                 return data
 
             except requests.exceptions.RequestException as e:
