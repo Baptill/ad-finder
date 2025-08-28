@@ -1,33 +1,33 @@
-from manager import RentManager
+from scraper import FigaroScraper
+from models import ScrapingParameters
 from config import CONFIG
-import signal
-import sys
-
-
-def signal_handler(sig, frame):
-    print("\nArrêt du programme...")
-    if "manager" in globals():
-        manager.stop()
-    sys.exit(0)
+import json
 
 
 def main() -> None:
-    global manager
-    signal.signal(signal.SIGINT, signal_handler)
+    if not CONFIG:
+        print(
+            "Aucune recherche configurée. Veuillez créer des recherches dans config.py"
+        )
+        return
 
-    manager = RentManager(searches=CONFIG)
+    search = CONFIG[0]
+    scraper = FigaroScraper(search.parameters or ScrapingParameters())
 
-    if manager.start():
-        try:
-            while manager.is_running():
-                import time
+    try:
+        url = search.get_url()
+        data = scraper.scrape_url(url, search.type)
+        if data:
+            print(json.dumps(data, indent=2, ensure_ascii=False))
+        else:
+            print("Aucune donnée récupérée")
 
-                time.sleep(1)
-        except KeyboardInterrupt:
-            signal_handler(None, None)
-    else:
-        print("Erreur lors du démarrage du gestionnaire")
-        sys.exit(1)
+    except Exception as e:
+        print(f"Erreur: {e}")
+    finally:
+        scraper.close()
+
+    print("Scraping terminé.")
 
 
 if __name__ == "__main__":

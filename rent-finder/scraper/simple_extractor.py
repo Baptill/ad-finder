@@ -29,7 +29,6 @@ class SimpleDataExtractor:
                 "Loyer d'un appartement par nombre de pièces"
             ),
         }
-        print(data)
         return data
 
     def _extract_house_data(self):
@@ -43,7 +42,6 @@ class SimpleDataExtractor:
                 "Loyer d'une maison par nombre de pièces"
             ),
         }
-        print(data)
         return data
 
     def _extract_m2_sell_data(self, tag: str):
