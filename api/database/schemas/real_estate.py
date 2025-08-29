@@ -8,6 +8,8 @@ from sqlalchemy import (
     ForeignKey,
 )
 
+from database.database import Base
+
 
 class SellMedianPrice(Base):
     __tablename__ = "sell_median_price"

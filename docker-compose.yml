@@ -1,27 +1,49 @@
 services:
+  back:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: api-ad-finder
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: G-8kdjf63c-c*x
+      POSTGRES_DB: ad_finder_db
+      DATABASE_URL: postgresql+psycopg2://user:G-8kdjf63c-c*x@db:5432/ad_finder_db
+    ports:
+      - "8001:8001"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+    volumes:
+      - ./api:/app/api
   db:
     image: postgres:15
-    container_name: ad-finder-db
-    env_file:
-      - .env
+    container_name: db-ad-finder
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: G-8kdjf63c-c*x
+      POSTGRES_DB: ad_finder_db
     ports:
       - "5433:5432"
     networks:
       - app-network
     volumes:
       - postgres_data:/var/lib/postgresql/data
-  redis:
-    image: redis:7-alpine
-    container_name: ad-finder-redis
-    restart: always
-    networks:
-      - app-network
-    ports:
-      - "6380:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d ad_finder_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: ad-finder-redis
+  #   restart: always
+  #   networks:
+  #     - app-network
+  #   ports:
+  #     - "6380:6379"
 
 volumes:
   postgres_data:
